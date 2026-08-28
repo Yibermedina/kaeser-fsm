@@ -3,11 +3,12 @@
 import { Suspense, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
+const PASSWORD_DEFAULT = 'kaeser2026';
+
 function Formulario() {
   const [correo, setCorreo] = useState('');
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
-  const [mensaje, setMensaje] = useState('');
 
   async function iniciarSesion(evento: React.FormEvent<HTMLFormElement>) {
     evento.preventDefault();
@@ -19,24 +20,39 @@ function Formulario() {
 
     setCargando(true);
     setError('');
-    setMensaje('');
 
     const supabase = createClient();
-    const { error: accesoError } = await supabase.auth.signInWithOtp({
+    const { data: usuario, error: perfilError } = await supabase
+      .from('usuarios')
+      .select('id, rol, activo')
+      .eq('correo', email)
+      .maybeSingle<{ id: string; rol: 'administrador' | 'coordinador' | 'service_logistician'; activo: boolean }>();
+
+    if (perfilError || !usuario || !usuario.activo) {
+      setCargando(false);
+      setError('El correo no está registrado o no tiene acceso a la plataforma.');
+      return;
+    }
+
+    const { error: accesoError } = await supabase.auth.signInWithPassword({
       email,
-      options: {
-        emailRedirectTo: 'https://mantenimiento-fsm.com',
-      },
+      password: PASSWORD_DEFAULT,
     });
 
     setCargando(false);
 
     if (accesoError) {
-      setError('No se pudo enviar el enlace de acceso. Inténtalo de nuevo.');
+      setError('El correo no está registrado o no tiene acceso a la plataforma.');
       return;
     }
 
-    setMensaje('Revisa tu correo corporativo para entrar al sistema.');
+    const destino = usuario.rol === 'administrador'
+      ? '/admin'
+      : usuario.rol === 'service_logistician'
+        ? '/materiales'
+        : '/clientes';
+
+    window.location.assign(destino);
   }
 
   return (
@@ -48,13 +64,12 @@ function Formulario() {
           <p className="text-sm font-bold tracking-wide text-[#0C0C0C]/70">COORDINADORES KAESER</p>
         </div>
         <form onSubmit={iniciarSesion} className="space-y-4 px-8 py-7">
-          <p className="text-sm text-[#6B7280]">Ingresa con tu correo corporativo y te enviaremos un enlace de acceso.</p>
+          <p className="text-sm text-[#6B7280]">Ingresa tu correo corporativo para entrar al sistema.</p>
           <label className="block text-sm font-bold text-[#41454D]">Correo
             <input type="email" required autoComplete="username" value={correo} onChange={(e) => setCorreo(e.target.value)} placeholder="nombre.apellido@kaeser.com" className="mt-1 w-full rounded-xl border border-[#E4E7EB] bg-[#f8f9fa] px-4 py-3 font-normal outline-none focus:border-[#FDC100] focus:bg-white focus:ring-2 focus:ring-[#FDC100]/25" />
           </label>
           {error && <p className="rounded-xl border border-[#F6CFCB] bg-[#FEECEC] px-4 py-3 text-sm text-[#B42318]" role="alert">{error}</p>}
-          {mensaje && <p className="rounded-xl border border-[#C9E0D3] bg-[#E8F1EC] px-4 py-3 text-sm text-[#14432A]" role="status">{mensaje}</p>}
-          <button type="submit" disabled={cargando} className="w-full rounded-xl bg-[#0C0C0C] px-4 py-3 font-bold text-[#FDC100] transition hover:bg-black disabled:opacity-60">{cargando ? 'Enviando enlace…' : 'Enviar enlace de acceso'}</button>
+          <button type="submit" disabled={cargando} className="w-full rounded-xl bg-[#0C0C0C] px-4 py-3 font-bold text-[#FDC100] transition hover:bg-black disabled:opacity-60">{cargando ? 'Ingresando…' : 'Ingresar'}</button>
         </form>
       </div>
     </main>
