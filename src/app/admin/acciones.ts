@@ -34,6 +34,13 @@ export async function restablecerContrasenaUsuario(usuarioId: string, nuevaContr
   if (!clave) return { ok: false, mensaje: 'La nueva contraseña no puede estar vacía.' };
   if (clave.length < 8) return { ok: false, mensaje: 'La contraseña debe tener al menos 8 caracteres.' };
 
+  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  console.log('Validación de clave service role antes de updateUserById:', {
+    existe: Boolean(serviceRole && serviceRole !== 'undefined' && serviceRole !== 'null' && serviceRole.trim() !== ''),
+    largo: serviceRole?.length ?? 0,
+    preview: serviceRole ? `${serviceRole.slice(0, 6)}...` : null,
+  });
+
   const admin = createAdminClient();
   const { data, error } = await admin.auth.admin.updateUserById(usuarioId, {
     password: clave,
