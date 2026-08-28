@@ -37,11 +37,12 @@ export async function actualizarSesion(request: NextRequest) {
   // getUser() valida el token contra Supabase. No uses getSession() aquí:
   // lee la cookie sin verificarla y es falsificable.
   const { data: { user } } = await supabase.auth.getUser();
+  const emailDesdeCookie = request.cookies.get('user_email')?.value?.toLowerCase();
 
   const ruta = request.nextUrl.pathname;
   const esPublica = RUTAS_PUBLICAS.some((r) => ruta.startsWith(r));
 
-  if (!user && !esPublica) {
+  if (!user && !emailDesdeCookie && !esPublica) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('destino', ruta); // vuelve aquí tras iniciar sesión

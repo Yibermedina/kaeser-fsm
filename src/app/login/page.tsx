@@ -1,9 +1,7 @@
 'use client';
 
 import { Suspense, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-
-const PASSWORD_DEFAULT = 'kaeser2026';
+import { iniciarSesionConCorreo } from '@/app/admin/acciones';
 
 function Formulario() {
   const [correo, setCorreo] = useState('');
@@ -21,38 +19,15 @@ function Formulario() {
     setCargando(true);
     setError('');
 
-    const supabase = createClient();
-    const { data: usuario, error: perfilError } = await supabase
-      .from('usuarios')
-      .select('id, rol, activo')
-      .eq('correo', email)
-      .maybeSingle<{ id: string; rol: 'administrador' | 'coordinador' | 'service_logistician'; activo: boolean }>();
-
-    if (perfilError || !usuario || !usuario.activo) {
-      setCargando(false);
-      setError('El correo no está registrado o no tiene acceso a la plataforma.');
-      return;
-    }
-
-    const { error: accesoError } = await supabase.auth.signInWithPassword({
-      email,
-      password: PASSWORD_DEFAULT,
-    });
-
+    const resultado = await iniciarSesionConCorreo(email);
     setCargando(false);
 
-    if (accesoError) {
-      setError('El correo no está registrado o no tiene acceso a la plataforma.');
+    if (!resultado.ok || !resultado.redirectTo) {
+      setError(resultado.error ?? 'El correo no está registrado.');
       return;
     }
 
-    const destino = usuario.rol === 'administrador'
-      ? '/admin'
-      : usuario.rol === 'service_logistician'
-        ? '/materiales'
-        : '/clientes';
-
-    window.location.assign(destino);
+    window.location.assign(resultado.redirectTo);
   }
 
   return (

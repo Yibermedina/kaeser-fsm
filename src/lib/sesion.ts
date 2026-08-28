@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
@@ -15,8 +16,11 @@ export interface UsuarioSesion {
 export const obtenerUsuario = cache(async (): Promise<UsuarioSesion | null> => {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user?.email) return null;
-  const { data } = await supabase.from('usuarios').select('id, nombre, correo, rol, sucursal').eq('correo', user.email).maybeSingle();
+  const cookieStore = await cookies();
+  const emailDesdeCookie = cookieStore.get('user_email')?.value?.toLowerCase();
+  const email = user?.email ?? emailDesdeCookie;
+  if (!email) return null;
+  const { data } = await supabase.from('usuarios').select('id, nombre, correo, rol, sucursal').eq('correo', email).maybeSingle();
   return data ? {
     ...(data as Omit<UsuarioSesion, 'requiereCambioClave'>),
     requiereCambioClave: false,

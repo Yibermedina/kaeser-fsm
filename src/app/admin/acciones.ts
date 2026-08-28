@@ -1,5 +1,6 @@
 'use server';
 
+import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -13,6 +14,40 @@ async function exigirAdministrador() {
   if (!usuario) return { error: 'Tu sesión expiró. Vuelve a iniciar sesión.' as const };
   if (usuario.rol !== 'administrador') return { error: 'Solo un administrador puede gestionar usuarios.' as const };
   return { usuario };
+}
+
+export async function iniciarSesionConCorreo(emailInput: string): Promise<{ ok: boolean; redirectTo?: string; error?: string }> {
+  const email = emailInput.toLowerCase().trim();
+  if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+    return { ok: false, error: 'El correo no está registrado.' };
+  }
+
+  const admin = createAdminClient();
+  const { data: usuariosAuth, error: authError } = await admin.auth.admin.listUsers();
+  const usuarioAuth = usuariosAuth?.users.find((u) => u.email?.toLowerCase() === email);
+
+  if (authError || !usuarioAuth) {
+    return { ok: false, error: 'El correo no está registrado.' };
+  }
+
+  const supabase = await createClient();
+  const { data: perfil, error: perfilError } = await supabase
+    .from('usuarios')
+    .select('rol, activo')
+    .eq('correo', email)
+    .maybeSingle<{ rol: Rol; activo: boolean }>();
+
+  if (perfilError || !perfil || !perfil.activo || !['administrador', 'coordinador', 'service_logistician'].includes(perfil.rol)) {
+    return { ok: false, error: 'El correo no está registrado.' };
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set('user_email', email, { path: '/', httpOnly: false, sameSite: 'lax', maxAge: 60 * 60 * 24 * 7, secure: true });
+  cookieStore.set('user_rol', perfil.rol, { path: '/', httpOnly: false, sameSite: 'lax', maxAge: 60 * 60 * 24 * 7, secure: true });
+  cookieStore.set('user_id', usuarioAuth.id, { path: '/', httpOnly: false, sameSite: 'lax', maxAge: 60 * 60 * 24 * 7, secure: true });
+
+  const redirectTo = perfil.rol === 'administrador' ? '/admin' : perfil.rol === 'service_logistician' ? '/materiales' : '/clientes';
+  return { ok: true, redirectTo };
 }
 
 export async function cambiarEstadoUsuario(usuarioId: string, activo: boolean): Promise<ResultadoAccion> {
