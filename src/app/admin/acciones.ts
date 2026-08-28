@@ -33,11 +33,12 @@ export async function iniciarSesionConCorreo(emailInput: string): Promise<{ ok: 
   const supabase = await createClient();
   const { data: perfil, error: perfilError } = await supabase
     .from('usuarios')
-    .select('rol, activo')
-    .eq('correo', email)
-    .maybeSingle<{ rol: Rol; activo: boolean }>();
+    .select('*')
+    .ilike('correo', email.trim())
+    .eq('activo', true)
+    .single();
 
-  if (perfilError || !perfil || !perfil.activo || !['administrador', 'coordinador', 'service_logistician'].includes(perfil.rol)) {
+  if (perfilError || !perfil || !['administrador', 'coordinador', 'service_logistician'].includes(perfil.rol)) {
     return { ok: false, error: 'El correo no está registrado.' };
   }
 
