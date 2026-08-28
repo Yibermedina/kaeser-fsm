@@ -1,0 +1,16 @@
+import Link from 'next/link';
+import type { Celda } from '@/lib/fechas';
+import { DIAS_SEMANA } from '@/lib/fechas';
+import type { FilaCalendario } from '@/types/db';
+import { CLASES_ESTADO, ETIQUETA_ESTADO, formatearHora } from '@/lib/formato';
+
+const PUNTO_ESTADO: Record<string, string> = { programado: 'bg-[#FDC100]', ejecutado: 'bg-[#14432A]', pendiente: 'bg-[#DC2626]', reprogramada: 'bg-[#F97316]' };
+
+export default function RejillaMes({ semanas, porDia, totalVisitas, visitaAbierta }: { semanas: Celda[][]; porDia: Map<string, FilaCalendario[]>; totalVisitas: number; visitaAbierta: string }) {
+  return <section className="overflow-hidden rounded-[22px] border border-[#E4E7EB] bg-white shadow-sm"><div className="flex items-center justify-between border-b border-[#E4E7EB] px-4 py-2.5"><p className="text-xs font-bold uppercase tracking-wide text-[#6B7280]">{totalVisitas} visita{totalVisitas === 1 ? '' : 's'} con fecha en el mes</p><ul className="flex flex-wrap gap-3 text-[0.7rem] font-semibold text-[#4B5563]">{(['programado', 'ejecutado', 'pendiente', 'reprogramada'] as const).map((e) => <li key={e} className="flex items-center gap-1.5"><span className={`h-2.5 w-2.5 rounded-full ${PUNTO_ESTADO[e]}`} aria-hidden />{ETIQUETA_ESTADO[e]}</li>)}</ul></div><div className="grid grid-cols-7 border-b border-[#E4E7EB] bg-[#f8f9fa]">{DIAS_SEMANA.map((d) => <div key={d} className="px-2 py-2 text-center text-[0.7rem] font-extrabold uppercase tracking-wide text-[#6B7280]">{d}</div>)}</div><div className="grid grid-cols-7">{semanas.flat().map((celda) => { const visitas = porDia.get(celda.iso) ?? []; return <div key={celda.iso} className={`min-h-[118px] border-b border-r border-[#EEF0F2] p-1.5 last:border-r-0 ${!celda.delMes ? 'bg-[#FCFCFD]' : celda.finDeSemana ? 'bg-[#FCFCFD]' : 'bg-white'}`}><div className="mb-1 flex items-center justify-between px-1"><span className={`text-xs font-bold ${celda.esHoy ? 'flex h-5 w-5 items-center justify-center rounded-full bg-[#0C0C0C] text-[#FDC100]' : celda.delMes ? 'text-[#41454D]' : 'text-[#C7CCD3]'}`}>{celda.dia}</span>{visitas.length > 2 && <span className="text-[0.65rem] font-bold text-[#6B7280]">{visitas.length}</span>}</div><div className="space-y-1">{visitas.slice(0, 3).map((v) => <TarjetaVisita key={v.visita_id} visita={v} abierta={v.visita_id === visitaAbierta} />)}{visitas.length > 3 && <p className="px-1 text-[0.65rem] font-semibold text-[#6B7280]">+{visitas.length - 3} más</p>}</div></div>; })}</div></section>;
+}
+
+function TarjetaVisita({ visita: v, abierta }: { visita: FilaCalendario; abierta: boolean }) {
+  const tecnicos = v.tecnicos_nombres ?? [];
+  return <Link href={`?visita=${v.visita_id}`} scroll={false} title={`${v.cliente_nombre} · ${tecnicos.join(', ') || 'Sin asignar'}`} className={`block rounded-lg border px-1.5 py-1 text-left transition hover:shadow-sm ${CLASES_ESTADO[v.estado]} ${abierta ? 'ring-2 ring-[#0C0C0C] ring-offset-1' : ''}`}><span className="block truncate text-[0.7rem] font-bold leading-tight">{v.cliente_nombre}</span><span className="block truncate text-[0.62rem] opacity-90">{v.hora_inicio ? `${formatearHora(v.hora_inicio)} · ` : ''}{tecnicos[0] ?? 'Sin asignar'}{tecnicos.length > 1 ? ` +${tecnicos.length - 1}` : ''}</span></Link>;
+}
