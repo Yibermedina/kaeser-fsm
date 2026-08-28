@@ -47,6 +47,23 @@ export async function guardarUsuario(_anterior: ResultadoAccion | null, formData
   return { ok: true, mensaje: 'Usuario actualizado.' };
 }
 
+export async function restablecerContrasena(_anterior: ResultadoAccion | null, formData: FormData): Promise<ResultadoAccion> {
+  const guardia = await exigirAdministrador();
+  if ('error' in guardia) return { ok: false, mensaje: guardia.error ?? 'No autorizado.' };
+  const id = String(formData.get('id') || '');
+  const contrasena = String(formData.get('contrasena') || '');
+  if (!id || contrasena.length < 8) return { ok: false, mensaje: 'La contraseña debe tener al menos 8 caracteres.' };
+
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.updateUserById(id, {
+    password: contrasena,
+    user_metadata: { requiere_cambio_clave: true },
+  });
+  if (error) return { ok: false, mensaje: error.message };
+  revalidatePath('/admin/usuarios');
+  return { ok: true, mensaje: 'Contraseña actualizada. El usuario deberá cambiarla al ingresar.' };
+}
+
 export async function crearUsuario(_anterior: ResultadoAccion | null, formData: FormData): Promise<ResultadoAccion> {
   const guardia = await exigirAdministrador();
   if ('error' in guardia) return { ok: false, mensaje: guardia.error ?? 'No autorizado.' };
