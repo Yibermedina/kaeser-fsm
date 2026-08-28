@@ -19,7 +19,7 @@ export default function RecuperarClave() {
 
     const supabase = createClient();
     const { error: recuperacionError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'http://localhost:3000/cambiar-clave',
+      redirectTo: 'https://mantenimiento-fsm.com/cambiar-clave',
     });
 
     setCargando(false);

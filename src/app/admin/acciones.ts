@@ -27,6 +27,25 @@ export async function cambiarEstadoUsuario(usuarioId: string, activo: boolean): 
   return { ok: true, mensaje: activo ? 'Usuario activado.' : 'Usuario desactivado.' };
 }
 
+export async function restablecerContrasenaUsuario(usuarioId: string, nuevaContrasena: string = CONTRASENA_INICIAL): Promise<ResultadoAccion> {
+  const guardia = await exigirAdministrador();
+  if ('error' in guardia) return { ok: false, mensaje: guardia.error ?? 'No autorizado.' };
+  const clave = nuevaContrasena.trim();
+  if (!clave) return { ok: false, mensaje: 'La nueva contraseña no puede estar vacía.' };
+  if (clave.length < 8) return { ok: false, mensaje: 'La contraseña debe tener al menos 8 caracteres.' };
+
+  const admin = createAdminClient();
+  const { data, error } = await admin.auth.admin.updateUserById(usuarioId, {
+    password: clave,
+    user_metadata: { requiere_cambio_clave: true },
+  });
+
+  if (error || !data.user) return { ok: false, mensaje: error?.message ?? 'No se pudo actualizar la contraseña.' };
+
+  revalidatePath('/admin/usuarios');
+  return { ok: true, mensaje: `Se actualizó la contraseña de ${data.user.email ?? 'este usuario'}. Debe cambiarla al ingresar con la clave inicial: ${CONTRASENA_INICIAL}.` };
+}
+
 export async function guardarUsuario(_anterior: ResultadoAccion | null, formData: FormData): Promise<ResultadoAccion> {
   const guardia = await exigirAdministrador();
   if ('error' in guardia) return { ok: false, mensaje: guardia.error ?? 'No autorizado.' };
