@@ -7,7 +7,7 @@ import { obtenerUsuario, type Rol } from '@/lib/sesion';
 
 export interface ResultadoAccion { ok: boolean; mensaje: string; }
 const ROLES: Rol[] = ['administrador', 'coordinador', 'service_logistician'];
-const CONTRASENA_INICIAL = 'Kaeser2026*';
+const CONTRASENA_INICIAL = 'kaeser2026';
 
 async function exigirAdministrador() {
   const usuario = await obtenerUsuario();
