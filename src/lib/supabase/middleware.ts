@@ -10,7 +10,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 /** Rutas accesibles sin sesión iniciada */
-const RUTAS_PUBLICAS = ['/login', '/auth', '/recuperar-clave', '/cambiar-clave'];
+const RUTAS_PUBLICAS = ['/login', '/auth'];
 
 export async function actualizarSesion(request: NextRequest) {
   let respuesta = NextResponse.next({ request });

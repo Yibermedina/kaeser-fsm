@@ -7,7 +7,6 @@ import { obtenerUsuario, type Rol } from '@/lib/sesion';
 
 export interface ResultadoAccion { ok: boolean; mensaje: string; }
 const ROLES: Rol[] = ['administrador', 'coordinador', 'service_logistician'];
-const CONTRASENA_INICIAL = 'kaeser2026';
 
 async function exigirAdministrador() {
   const usuario = await obtenerUsuario();
@@ -25,32 +24,6 @@ export async function cambiarEstadoUsuario(usuarioId: string, activo: boolean): 
   if (!filas?.length) return { ok: false, mensaje: 'No se pudo actualizar el usuario.' };
   revalidatePath('/admin/usuarios');
   return { ok: true, mensaje: activo ? 'Usuario activado.' : 'Usuario desactivado.' };
-}
-
-export async function restablecerContrasenaUsuario(usuarioId: string, nuevaContrasena: string = CONTRASENA_INICIAL): Promise<ResultadoAccion> {
-  const guardia = await exigirAdministrador();
-  if ('error' in guardia) return { ok: false, mensaje: guardia.error ?? 'No autorizado.' };
-  const clave = nuevaContrasena.trim();
-  if (!clave) return { ok: false, mensaje: 'La nueva contraseña no puede estar vacía.' };
-  if (clave.length < 8) return { ok: false, mensaje: 'La contraseña debe tener al menos 8 caracteres.' };
-
-  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  console.log('Validación de clave service role antes de updateUserById:', {
-    existe: Boolean(serviceRole && serviceRole !== 'undefined' && serviceRole !== 'null' && serviceRole.trim() !== ''),
-    largo: serviceRole?.length ?? 0,
-    preview: serviceRole ? `${serviceRole.slice(0, 6)}...` : null,
-  });
-
-  const admin = createAdminClient();
-  const { data, error } = await admin.auth.admin.updateUserById(usuarioId, {
-    password: clave,
-    user_metadata: { requiere_cambio_clave: true },
-  });
-
-  if (error || !data.user) return { ok: false, mensaje: error?.message ?? 'No se pudo actualizar la contraseña.' };
-
-  revalidatePath('/admin/usuarios');
-  return { ok: true, mensaje: `Se actualizó la contraseña de ${data.user.email ?? 'este usuario'}. Debe cambiarla al ingresar con la clave inicial: ${CONTRASENA_INICIAL}.` };
 }
 
 export async function guardarUsuario(_anterior: ResultadoAccion | null, formData: FormData): Promise<ResultadoAccion> {
@@ -86,11 +59,11 @@ export async function crearUsuario(_anterior: ResultadoAccion | null, formData: 
   if (rol === 'administrador' && sucursal.toLowerCase() !== 'nacional') return { ok: false, mensaje: 'Un administrador debe tener la sucursal "Nacional".' };
 
   const admin = createAdminClient();
-  const { data, error } = await admin.auth.admin.createUser({ email: correo, password: CONTRASENA_INICIAL, email_confirm: true, user_metadata: { requiere_cambio_clave: true } });
+  const { data, error } = await admin.auth.admin.createUser({ email: correo, email_confirm: true });
   if (error || !data.user) return { ok: false, mensaje: error?.message ?? 'No se pudo crear la cuenta.' };
   const { data: perfil, error: perfilError } = await admin.from('usuarios').insert({ id: data.user.id, nombre, correo, rol, sucursal, activo: true }).select('id');
   if (perfilError) { await admin.auth.admin.deleteUser(data.user.id); return { ok: false, mensaje: `No se pudo crear el perfil: ${perfilError.message}` }; }
   if (!perfil?.length) { await admin.auth.admin.deleteUser(data.user.id); return { ok: false, mensaje: 'No se pudo crear el perfil del usuario.' }; }
   revalidatePath('/admin/usuarios');
-  return { ok: true, mensaje: `${nombre} creado. Contraseña inicial: ${CONTRASENA_INICIAL}. Deberá cambiarla al ingresar.` };
+  return { ok: true, mensaje: `${nombre} creado. Se enviará un enlace de acceso al correo indicado.` };
 }

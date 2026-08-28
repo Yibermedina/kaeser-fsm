@@ -19,7 +19,7 @@ export const obtenerUsuario = cache(async (): Promise<UsuarioSesion | null> => {
   const { data } = await supabase.from('usuarios').select('id, nombre, correo, rol, sucursal').eq('correo', user.email).maybeSingle();
   return data ? {
     ...(data as Omit<UsuarioSesion, 'requiereCambioClave'>),
-    requiereCambioClave: user.user_metadata?.requiere_cambio_clave === true,
+    requiereCambioClave: false,
   } : null;
 });
 
@@ -34,7 +34,6 @@ export function rutaInicial(rol: Rol): string { return MODULOS_POR_ROL[rol]?.[0]
 export async function requerirAcceso(ruta: string): Promise<UsuarioSesion> {
   const usuario = await obtenerUsuario();
   if (!usuario) redirect('/login');
-  if (usuario.requiereCambioClave) redirect(`/cambiar-clave?destino=${encodeURIComponent(ruta)}`);
   if (!MODULOS_POR_ROL[usuario.rol]?.includes(ruta)) redirect(rutaInicial(usuario.rol));
   return usuario;
 }
