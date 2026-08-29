@@ -10,7 +10,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 /** Rutas accesibles sin sesión iniciada */
-const RUTAS_PUBLICAS = ['/login', '/auth'];
+const RUTAS_PUBLICAS = ['/login', '/auth', '/api'];
 
 export async function actualizarSesion(request: NextRequest) {
   let respuesta = NextResponse.next({ request });
@@ -41,8 +41,9 @@ export async function actualizarSesion(request: NextRequest) {
 
   const ruta = request.nextUrl.pathname;
   const esPublica = RUTAS_PUBLICAS.some((r) => ruta.startsWith(r));
+  const esAccionLogin = request.headers.get('next-action') === 'app/login';
 
-  if (!user && !emailDesdeCookie && !esPublica) {
+  if (!user && !emailDesdeCookie && !esPublica && !esAccionLogin) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('destino', ruta); // vuelve aquí tras iniciar sesión
