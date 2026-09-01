@@ -10,8 +10,8 @@ import { colorDesdeTexto, iniciales } from '@/lib/formato';
 const POR_PAGINA = 50;
 
 export default async function ListaContratos({
-  q, pagina, contratoActivo,
-}: { q: string; pagina: number; contratoActivo: string }) {
+  q, pagina, contratoActivo, mes, anio, estado,
+}: { q: string; pagina: number; contratoActivo: string; mes?: string; anio?: string; estado?: string }) {
   const supabase = await createClient();
   const desde = (pagina - 1) * POR_PAGINA;
 
@@ -21,6 +21,20 @@ export default async function ListaContratos({
             { count: 'exact' })
     .order('cliente_nombre', { ascending: true })
     .range(desde, desde + POR_PAGINA - 1);
+
+  if (mes && /^\d+$/.test(mes)) {
+    const mesNum = Number(mes);
+    if (mesNum >= 1 && mesNum <= 12) {
+      const anioNum = Number(anio) || new Date().getFullYear();
+      const fechaInicial = `${anioNum}-${String(mesNum).padStart(2, '0')}-01`;
+      const ultimoDia = new Date(Date.UTC(anioNum, mesNum, 0)).getUTCDate();
+      const fechaFinal = `${anioNum}-${String(mesNum).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
+      consulta = consulta.gte('valido_hasta', fechaInicial).lte('valido_hasta', fechaFinal);
+    }
+  }
+
+  if (estado === 'vencido') consulta = consulta.lt('valido_hasta', new Date().toISOString().slice(0, 10));
+  if (estado === 'vigente') consulta = consulta.gte('valido_hasta', new Date().toISOString().slice(0, 10));
 
   if (q) {
     // Busca por nombre de cliente O por número de contrato.

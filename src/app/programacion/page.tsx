@@ -7,11 +7,12 @@ import RejillaMes from '@/components/programacion/RejillaMes';
 import PorProgramar from '@/components/programacion/PorProgramar';
 import PanelVisita from '@/components/programacion/PanelVisita';
 import { EsqueletoRejilla } from '@/components/programacion/Esqueletos';
+import AgendaSemanal from '@/components/programacion/AgendaSemanal';
 import { requerirAcceso } from '@/lib/sesion';
 
 export const dynamic = 'force-dynamic';
 
-type Props = { searchParams: Promise<{ anio?: string; mes?: string; tecnico?: string; estado?: string; visita?: string }> };
+type Props = { searchParams: Promise<{ anio?: string; mes?: string; tecnico?: string; estado?: string; visita?: string; vista?: string }> };
 
 export default async function PaginaProgramacion({ searchParams }: Props) {
   await requerirAcceso('/programacion');
@@ -22,10 +23,40 @@ export default async function PaginaProgramacion({ searchParams }: Props) {
   const filtroTecnico = p.tecnico ?? '';
   const filtroEstado = p.estado ?? '';
   const visitaAbierta = p.visita ?? '';
+  const vista = p.vista === 'semanal' ? 'semanal' : 'mensual';
   const supabase = await createClient();
   const { data: tecnicos } = await supabase.from('tecnicos').select('id, nombre').eq('activo', true).order('nombre');
 
-  return <div className="min-h-screen bg-[#f8f9fa]"><div className="mx-auto max-w-[1600px] p-4 md:p-6"><header className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-extrabold tracking-tight text-[#0C0C0C]">Programación</h1><p className="text-sm text-[#6B7280]">{MESES[mes - 1]} {anio}</p></div></header><FiltrosProgramacion anio={anio} mes={mes} tecnico={filtroTecnico} estado={filtroEstado} tecnicos={tecnicos ?? []} anios={aniosDisponibles()} /><div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_320px]"><Suspense key={`${anio}-${mes}-${filtroTecnico}-${filtroEstado}`} fallback={<EsqueletoRejilla />}><ContenidoCalendario anio={anio} mes={mes} filtroTecnico={filtroTecnico} filtroEstado={filtroEstado} visitaAbierta={visitaAbierta} /></Suspense><aside className="xl:sticky xl:top-4 xl:self-start"><Suspense fallback={null}><PorProgramar anio={anio} mes={mes} filtroTecnico={filtroTecnico} filtroEstado={filtroEstado} /></Suspense></aside></div></div>{visitaAbierta && <Suspense fallback={null}><PanelVisita visitaId={visitaAbierta} tecnicos={tecnicos ?? []} /></Suspense>}</div>;
+  const contenido = vista === 'semanal' ? (
+    <AgendaSemanal tecnicos={tecnicos ?? []} />
+  ) : (
+    <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_320px]">
+      <Suspense key={`${anio}-${mes}-${filtroTecnico}-${filtroEstado}`} fallback={<EsqueletoRejilla />}>
+        <ContenidoCalendario anio={anio} mes={mes} filtroTecnico={filtroTecnico} filtroEstado={filtroEstado} visitaAbierta={visitaAbierta} />
+      </Suspense>
+      <aside className="xl:sticky xl:top-4 xl:self-start">
+        <Suspense fallback={null}>
+          <PorProgramar anio={anio} mes={mes} filtroTecnico={filtroTecnico} filtroEstado={filtroEstado} />
+        </Suspense>
+      </aside>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-[#f8f9fa]">
+      <div className="mx-auto max-w-[1600px] p-4 md:p-6">
+        <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-[#0C0C0C]">Programación</h1>
+            <p className="text-sm text-[#6B7280]">{MESES[mes - 1]} {anio}</p>
+          </div>
+        </header>
+        <FiltrosProgramacion anio={anio} mes={mes} tecnico={filtroTecnico} estado={filtroEstado} tecnicos={tecnicos ?? []} anios={aniosDisponibles()} vista={vista} />
+        {contenido}
+      </div>
+      {visitaAbierta && <Suspense fallback={null}><PanelVisita visitaId={visitaAbierta} tecnicos={tecnicos ?? []} /></Suspense>}
+    </div>
+  );
 }
 
 async function ContenidoCalendario({ anio, mes, filtroTecnico, filtroEstado, visitaAbierta }: { anio: number; mes: number; filtroTecnico: string; filtroEstado: string; visitaAbierta: string }) {

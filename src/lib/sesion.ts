@@ -28,9 +28,9 @@ export const obtenerUsuario = cache(async (): Promise<UsuarioSesion | null> => {
 });
 
 export const MODULOS_POR_ROL: Record<Rol, string[]> = {
-  coordinador: ['/clientes', '/programacion'],
+  coordinador: ['/clientes', '/programacion', '/admin/sabana'],
   service_logistician: ['/materiales'],
-  administrador: ['/admin', '/clientes', '/programacion', '/materiales', '/admin/usuarios'],
+  administrador: ['/admin', '/clientes', '/programacion', '/materiales', '/admin/usuarios', '/admin/sabana'],
 };
 
 export function rutaInicial(rol: Rol): string { return MODULOS_POR_ROL[rol]?.[0] ?? '/clientes'; }

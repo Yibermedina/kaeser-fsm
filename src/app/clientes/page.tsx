@@ -21,13 +21,13 @@ import { obtenerTecnicos } from '@/lib/datos';
 export const dynamic = 'force-dynamic'; // los datos dependen de la sesión (RLS)
 
 type Props = {
-  searchParams: Promise<{ q?: string; contrato?: string; pagina?: string; visita?: string }>;
+  searchParams: Promise<{ q?: string; contrato?: string; pagina?: string; visita?: string; mes?: string; anio?: string; estado?: string }>;
 };
 
 export default async function PaginaClientes({ searchParams }: Props) {
   await requerirAcceso('/clientes');
   // En Next.js 15 searchParams es una promesa.
-  const { q = '', contrato = '', pagina = '1', visita = '' } = await searchParams;
+  const { q = '', contrato = '', pagina = '1', visita = '', mes = '', anio = '', estado = '' } = await searchParams;
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#f8f9fa]">
@@ -38,11 +38,42 @@ export default async function PaginaClientes({ searchParams }: Props) {
             Directorio de Clientes
           </h1>
           <BuscadorClientes valorInicial={q} />
+          <form className="mt-3 grid grid-cols-3 gap-2" method="GET">
+            <select name="mes" defaultValue={mes} className="rounded-xl border border-[#E4E7EB] bg-[#f8f9fa] px-3 py-2 text-sm">
+              <option value="">Mes</option>
+              <option value="1">Enero</option>
+              <option value="2">Febrero</option>
+              <option value="3">Marzo</option>
+              <option value="4">Abril</option>
+              <option value="5">Mayo</option>
+              <option value="6">Junio</option>
+              <option value="7">Julio</option>
+              <option value="8">Agosto</option>
+              <option value="9">Septiembre</option>
+              <option value="10">Octubre</option>
+              <option value="11">Noviembre</option>
+              <option value="12">Diciembre</option>
+            </select>
+            <select name="anio" defaultValue={anio} className="rounded-xl border border-[#E4E7EB] bg-[#f8f9fa] px-3 py-2 text-sm">
+              <option value="">Año</option>
+              {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map((year) => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+            <select name="estado" defaultValue={estado} className="rounded-xl border border-[#E4E7EB] bg-[#f8f9fa] px-3 py-2 text-sm">
+              <option value="">Estado</option>
+              <option value="vigente">Vigente</option>
+              <option value="vencido">Vencido</option>
+            </select>
+            <button type="submit" className="col-span-3 rounded-xl bg-[#0C0C0C] px-3 py-2 text-sm font-bold text-[#FDC100]">
+              Aplicar filtros
+            </button>
+          </form>
         </div>
 
         {/* key: al cambiar la búsqueda se remonta y vuelve a mostrar el esqueleto */}
-        <Suspense key={`${q}-${pagina}`} fallback={<EsqueletoLista />}>
-          <ListaContratos q={q} pagina={Number(pagina) || 1} contratoActivo={contrato} />
+        <Suspense key={`${q}-${pagina}-${mes}-${anio}-${estado}`} fallback={<EsqueletoLista />}>
+          <ListaContratos q={q} pagina={Number(pagina) || 1} contratoActivo={contrato} mes={mes} anio={anio} estado={estado} />
         </Suspense>
       </aside>
 
