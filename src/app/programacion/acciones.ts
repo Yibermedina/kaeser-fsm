@@ -260,7 +260,7 @@ export async function guardarActividadAgenda(
     return { ok: false, mensaje: 'Solo puedes asignar técnicos de tu sucursal.' };
   }
 
-  const { data: actividad, error: errorInsert } = await supabase
+  const { data: actividadCreada, error: errorInsert } = await supabase
     .from('agenda_actividades')
     .insert({
       coordinador_id: usuario.id,
@@ -273,13 +273,13 @@ export async function guardarActividadAgenda(
     .select('id')
     .single();
 
-  if (errorInsert || !actividad) {
+  if (errorInsert || !actividadCreada) {
     return { ok: false, mensaje: `No se pudo guardar la actividad: ${errorInsert?.message ?? 'Error desconocido'}` };
   }
 
   const { error: errorRel } = await supabase
     .from('agenda_actividad_tecnicos')
-    .insert(tecnicos.map((tecnicoId) => ({ actividad_id: actividad.id, tecnico_id: tecnicoId })));
+    .insert(tecnicos.map((tecnicoId) => ({ actividad_id: actividadCreada.id, tecnico_id: tecnicoId })));
 
   if (errorRel) {
     return { ok: false, mensaje: `La actividad se guardó, pero falló la vinculación con técnicos: ${errorRel.message}` };
