@@ -1,13 +1,19 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { guardarActividadAgenda, type ActividadAgenda } from '@/app/programacion/acciones';
 import NuevaActividadModal, { type ActividadLocal } from './NuevaActividadModal';
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
-export default function AgendaSemanal({ tecnicos }: { tecnicos: { id: string; nombre: string }[] }) {
+export default function AgendaSemanal({ tecnicos, actividadesIniciales }: { tecnicos: { id: string; nombre: string }[]; actividadesIniciales: ActividadAgenda[] }) {
   const [abierto, setAbierto] = useState(false);
-  const [actividades, setActividades] = useState<ActividadLocal[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [pendiente, iniciar] = useTransition();
+  const router = useRouter();
+
+  const actividades = actividadesIniciales;
 
   const semana = useMemo(() => {
     const inicio = new Date();
@@ -23,8 +29,25 @@ export default function AgendaSemanal({ tecnicos }: { tecnicos: { id: string; no
     });
   }, []);
 
-  function guardarActividad(actividad: ActividadLocal) {
-    setActividades((prev) => [...prev, actividad]);
+  async function guardarActividad(actividad: ActividadLocal) {
+    iniciar(async () => {
+      const resultado = await guardarActividadAgenda({
+        fechaInicio: actividad.fechaInicio,
+        fechaFin: actividad.fechaFin || actividad.fechaInicio,
+        tipo: actividad.tipo,
+        tecnicos: actividad.tecnicos,
+        nota: actividad.nota,
+      });
+
+      if (!resultado.ok) {
+        setError(resultado.mensaje);
+        return;
+      }
+
+      setError(null);
+      setAbierto(false);
+      router.refresh();
+    });
   }
 
   return (
@@ -37,11 +60,18 @@ export default function AgendaSemanal({ tecnicos }: { tecnicos: { id: string; no
         <button
           type="button"
           onClick={() => setAbierto(true)}
+          disabled={pendiente}
           className="rounded-xl bg-[#0C0C0C] px-4 py-2 text-sm font-bold text-[#FDC100]"
         >
           + Nueva actividad
         </button>
       </div>
+
+      {error && (
+        <div className="rounded-xl border border-[#F6CFCB] bg-[#FEECEC] p-3 text-sm text-[#B42318]">
+          {error}
+        </div>
+      )}
 
       <div className="overflow-auto rounded-[22px] border border-[#E4E7EB] bg-white shadow-sm">
         <table className="min-w-full border-collapse text-left text-xs">
@@ -62,7 +92,7 @@ export default function AgendaSemanal({ tecnicos }: { tecnicos: { id: string; no
                 </td>
                 {tecnicos.map((tecnico) => {
                   const items = actividades.filter(
-                    (actividad) => actividad.tecnicos.includes(tecnico.id) && (actividad.fechaInicio <= dia.iso && (!actividad.fechaFin || actividad.fechaFin >= dia.iso))
+                    (actividad) => actividad.tecnicos.some((item) => item.id === tecnico.id) && (actividad.fechaInicio <= dia.iso && (!actividad.fechaFin || actividad.fechaFin >= dia.iso))
                   );
                   return (
                     <td key={`${dia.iso}-${tecnico.id}`} className="border-b border-[#E4E7EB] px-2 py-2 align-top">

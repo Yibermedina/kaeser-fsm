@@ -4,6 +4,27 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import type { EstadoVisita } from '@/types/db';
 
+export type TipoActividadAgenda =
+  | 'Reunión'
+  | 'Capacitación'
+  | 'Permiso'
+  | 'Cita médica'
+  | 'Actividades personales'
+  | 'Vacaciones'
+  | 'Incapacidad'
+  | 'Servicio puntual';
+
+export interface ActividadAgenda {
+  id: string;
+  tipo: TipoActividadAgenda;
+  fechaInicio: string;
+  fechaFin: string | null;
+  nota: string | null;
+  sucursal: string;
+  coordinadorId: string;
+  tecnicos: { id: string; nombre: string }[];
+}
+
 export interface ResultadoAccion {
   ok: boolean;
   mensaje: string;
@@ -114,4 +135,156 @@ export async function unirVisitas(visitaOrigenId: string, visitaDestinoId: strin
   if (error) return { ok: false, mensaje: error.message };
   revalidarTodo();
   return { ok: true, mensaje: `Visitas unidas como "${(data as { numero?: string } | null)?.numero ?? ''}".` };
+}
+
+const TIPOS_ACTIVIDAD: TipoActividadAgenda[] = [
+  'Reunión',
+  'Capacitación',
+  'Permiso',
+  'Cita médica',
+  'Actividades personales',
+  'Vacaciones',
+  'Incapacidad',
+  'Servicio puntual',
+];
+
+export async function obtenerActividadesAgenda(fechaInicio: string, fechaFin: string): Promise<ActividadAgenda[]> {
+  const supabase = await createClient();
+  const { data: { user }, error: errorUser } = await supabase.auth.getUser();
+  if (errorUser || !user?.email) return [];
+
+  const { data: usuario, error: errorUsuario } = await supabase
+    .from('usuarios')
+    .select('id, rol, sucursal')
+    .eq('correo', user.email)
+    .maybeSingle();
+
+  if (errorUsuario || !usuario) return [];
+  if (usuario.rol === 'service_logistician') return [];
+
+  let consulta = supabase
+    .from('agenda_actividades')
+    .select('id, tipo, fecha_inicio, fecha_fin, nota, sucursal, coordinador_id, agenda_actividad_tecnicos (tecnico_id, tecnicos (id, nombre))')
+    .gte('fecha_inicio', fechaInicio)
+    .lte('fecha_inicio', fechaFin)
+    .order('fecha_inicio');
+
+  if (usuario.rol === 'coordinador') {
+    consulta = consulta.eq('sucursal', usuario.sucursal).eq('coordinador_id', usuario.id);
+  }
+
+  const { data, error } = await consulta;
+  if (error) {
+    console.error('obtenerActividadesAgenda', error);
+    return [];
+  }
+
+  return (data ?? []).map((fila: any) => ({
+    id: fila.id,
+    tipo: fila.tipo,
+    fechaInicio: fila.fecha_inicio,
+    fechaFin: fila.fecha_fin,
+    nota: fila.nota,
+    sucursal: fila.sucursal,
+    coordinadorId: fila.coordinador_id,
+    tecnicos: (fila.agenda_actividad_tecnicos ?? []).map((v: any) => ({
+      id: v.tecnico_id ?? v.tecnicos?.id,
+      nombre: v.tecnicos?.nombre ?? 'Técnico',
+    })),
+  }));
+}
+
+export async function guardarActividadAgenda(
+  actividad: {
+    fechaInicio: string;
+    fechaFin?: string;
+    tipo: TipoActividadAgenda;
+    tecnicos: string[];
+    nota?: string;
+  }
+): Promise<{ ok: boolean; mensaje: string }> {
+  const fechaInicio = String(actividad.fechaInicio || '').trim();
+  const fechaFin = String(actividad.fechaFin || fechaInicio).trim();
+  const tipo = String(actividad.tipo || '').trim();
+  const tecnicos = Array.isArray(actividad.tecnicos) ? actividad.tecnicos.map(String).filter(Boolean) : [];
+  const nota = String(actividad.nota || '').trim();
+
+  if (!fechaInicio || !/^\d{4}-\d{2}-\d{2}$/.test(fechaInicio)) {
+    return { ok: false, mensaje: 'La fecha de inicio es obligatoria.' };
+  }
+  if (!TIPOS_ACTIVIDAD.includes(tipo as TipoActividadAgenda)) {
+    return { ok: false, mensaje: 'El tipo de actividad no es válido.' };
+  }
+  if (!tecnicos.length) {
+    return { ok: false, mensaje: 'Debes seleccionar al menos un técnico.' };
+  }
+  if (fechaFin < fechaInicio) {
+    return { ok: false, mensaje: 'La fecha fin no puede ser anterior a la de inicio.' };
+  }
+
+  const supabase = await createClient();
+  const { data: { user }, error: errorAuth } = await supabase.auth.getUser();
+  if (errorAuth || !user?.email) {
+    return { ok: false, mensaje: 'Tu sesión expiró. Vuelve a iniciar sesión.' };
+  }
+
+  const { data: usuario, error: errorUsuario } = await supabase
+    .from('usuarios')
+    .select('id, rol, sucursal')
+    .eq('correo', user.email)
+    .maybeSingle();
+
+  if (errorUsuario || !usuario) {
+    return { ok: false, mensaje: 'No se pudo identificar al coordinador activo.' };
+  }
+
+  if (usuario.rol !== 'coordinador' && usuario.rol !== 'administrador') {
+    return { ok: false, mensaje: 'No tienes permisos para crear actividades de agenda.' };
+  }
+
+  const { data: tecnicosValidos, error: errorTecnicos } = await supabase
+    .from('tecnicos')
+    .select('id, sucursal')
+    .in('id', tecnicos);
+
+  if (errorTecnicos) {
+    return { ok: false, mensaje: `No se pudieron validar los técnicos: ${errorTecnicos.message}` };
+  }
+
+  const validas = (tecnicosValidos ?? []).filter((t: any) => {
+    if (usuario.rol === 'administrador') return true;
+    return t.sucursal === usuario.sucursal;
+  });
+
+  if (validas.length !== tecnicos.length) {
+    return { ok: false, mensaje: 'Solo puedes asignar técnicos de tu sucursal.' };
+  }
+
+  const { data: actividad, error: errorInsert } = await supabase
+    .from('agenda_actividades')
+    .insert({
+      coordinador_id: usuario.id,
+      sucursal: usuario.sucursal,
+      tipo,
+      fecha_inicio: fechaInicio,
+      fecha_fin: fechaFin || null,
+      nota: nota || null,
+    })
+    .select('id')
+    .single();
+
+  if (errorInsert || !actividad) {
+    return { ok: false, mensaje: `No se pudo guardar la actividad: ${errorInsert?.message ?? 'Error desconocido'}` };
+  }
+
+  const { error: errorRel } = await supabase
+    .from('agenda_actividad_tecnicos')
+    .insert(tecnicos.map((tecnicoId) => ({ actividad_id: actividad.id, tecnico_id: tecnicoId })));
+
+  if (errorRel) {
+    return { ok: false, mensaje: `La actividad se guardó, pero falló la vinculación con técnicos: ${errorRel.message}` };
+  }
+
+  revalidatePath('/programacion');
+  return { ok: true, mensaje: 'Actividad guardada correctamente.' };
 }

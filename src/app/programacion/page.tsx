@@ -9,6 +9,7 @@ import PanelVisita from '@/components/programacion/PanelVisita';
 import { EsqueletoRejilla } from '@/components/programacion/Esqueletos';
 import AgendaSemanal from '@/components/programacion/AgendaSemanal';
 import { requerirAcceso } from '@/lib/sesion';
+import { obtenerActividadesAgenda } from '@/app/programacion/acciones';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,8 +28,11 @@ export default async function PaginaProgramacion({ searchParams }: Props) {
   const supabase = await createClient();
   const { data: tecnicos } = await supabase.from('tecnicos').select('id, nombre').eq('activo', true).order('nombre');
 
+  const semana = obtenerSemanaActual();
+  const actividadesAgenda = vista === 'semanal' ? await obtenerActividadesAgenda(semana.inicio, semana.fin) : [];
+
   const contenido = vista === 'semanal' ? (
-    <AgendaSemanal tecnicos={tecnicos ?? []} />
+    <AgendaSemanal tecnicos={tecnicos ?? []} actividadesIniciales={actividadesAgenda} />
   ) : (
     <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_320px]">
       <Suspense key={`${anio}-${mes}-${filtroTecnico}-${filtroEstado}`} fallback={<EsqueletoRejilla />}>
@@ -57,6 +61,23 @@ export default async function PaginaProgramacion({ searchParams }: Props) {
       {visitaAbierta && <Suspense fallback={null}><PanelVisita visitaId={visitaAbierta} tecnicos={tecnicos ?? []} /></Suspense>}
     </div>
   );
+}
+
+function obtenerSemanaActual() {
+  const hoy = new Date();
+  const lunes = new Date(hoy);
+  const dia = lunes.getDay();
+  const offset = dia === 0 ? -6 : 1 - dia;
+  lunes.setDate(hoy.getDate() + offset);
+  lunes.setHours(0, 0, 0, 0);
+  const fin = new Date(lunes);
+  fin.setDate(lunes.getDate() + 6);
+  fin.setHours(23, 59, 59, 999);
+
+  return {
+    inicio: lunes.toISOString().slice(0, 10),
+    fin: fin.toISOString().slice(0, 10),
+  };
 }
 
 async function ContenidoCalendario({ anio, mes, filtroTecnico, filtroEstado, visitaAbierta }: { anio: number; mes: number; filtroTecnico: string; filtroEstado: string; visitaAbierta: string }) {
