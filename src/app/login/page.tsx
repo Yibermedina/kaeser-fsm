@@ -60,8 +60,8 @@ function Acceso() {
   async function verificar(e: React.FormEvent) {
     e.preventDefault();
     const limpio = codigo.replace(/\D/g, '');
-    if (limpio.length !== 6) {
-      setError('El código son 6 dígitos.');
+    if (limpio.length !== 8) {
+      setError('El código son 8 dígitos.');
       return;
     }
 
@@ -116,7 +116,7 @@ function Acceso() {
           {paso === 'correo' ? (
             <>
               <p className="mb-5 text-sm text-[#6B7280]">
-                Escribe tu correo corporativo. Te enviaremos un código de 6 dígitos para entrar.
+                Escribe tu correo corporativo. Te enviaremos un código de 8 dígitos para entrar.
               </p>
 
               <form action={enviar} className="space-y-3">
@@ -156,16 +156,17 @@ function Acceso() {
                 <input
                   ref={campoCodigo}
                   value={codigo}
-                  onChange={(e) => setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  onChange={(e) => setCodigo(e.target.value.replace(/\D/g, '').slice(0, 8))}
                   inputMode="numeric"
+                  maxLength={8}
                   autoComplete="one-time-code"
-                  placeholder="000000"
-                  aria-label="Código de 6 dígitos"
+                  placeholder="00000000"
+                  aria-label="Código de 8 dígitos"
                   className="w-full rounded-xl border border-[#E4E7EB] bg-[#f8f9fa] px-4 py-3 text-center font-mono text-2xl font-bold tracking-[0.4em] outline-none transition focus:border-[#FDC100] focus:bg-white focus:ring-2 focus:ring-[#FDC100]/25"
                 />
                 <button
                   type="submit"
-                  disabled={verificando || codigo.length !== 6}
+                  disabled={verificando || codigo.length !== 8}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0C0C0C] px-4 py-3 font-bold text-[#FDC100] transition hover:bg-black disabled:opacity-50"
                 >
                   {verificando && <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#FDC100]/40 border-t-[#FDC100]" />}

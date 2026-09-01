@@ -21,7 +21,7 @@ export interface ResultadoLogin {
  * Evita que alguien use la pantalla para averiguar quién trabaja aquí.
  */
 const MENSAJE_NEUTRO =
-  'Si el correo está registrado, en unos segundos recibirás un código de 6 dígitos.';
+  'Si el correo está registrado, en unos segundos recibirás un código de 8 dígitos.';
 
 export async function enviarCodigo(
   _anterior: ResultadoLogin | null,
